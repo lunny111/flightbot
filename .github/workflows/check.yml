@@ -6,6 +6,11 @@ on:
     - cron: '*/20 * * * *'
   workflow_dispatch:        # Actions sekmesinden elle de calistirilabilir
 
+# Workflow token'ini salt-okunur yap: repo public oldugu icin
+# GITHUB_TOKEN'in yazma yetkisi olmasina gerek yok.
+permissions:
+  contents: read
+
 concurrency:
   group: bilet-kontrolu
   cancel-in-progress: false
