@@ -119,8 +119,23 @@ async function expandAll(page) {
   }
 }
 
-/** Scrape one search. Returns { flights: [...], error: null } */
-async function scrapeSearch(browser, search, currency) {
+/**
+ * Tek bir aramayı çeker. Geçici ağ hatalarında (uyku/wifi değişimi/DNS)
+ * artan bekleme ile tekrar dener — yoksa tek hıçkırık koca bir kontrol
+ * penceresini kaybettiriyor.
+ */
+async function scrapeSearch(browser, search, currency, attempts = 3) {
+  let last = null;
+  for (let i = 1; i <= attempts; i++) {
+    const res = await scrapeOnce(browser, search, currency);
+    if (!res.error) return i > 1 ? { ...res, recoveredAfter: i } : res;
+    last = res.error;
+    if (i < attempts) await new Promise(r => setTimeout(r, i * 8000));
+  }
+  return { flights: [], error: `${attempts} denemede başarısız — ${last}` };
+}
+
+async function scrapeOnce(browser, search, currency) {
   const ctx = await browser.newContext({
     locale: 'tr-TR',
     timezoneId: 'Europe/Istanbul',

@@ -134,11 +134,12 @@ async function runCycle() {
     for (const search of CONFIG.searches) {
       searchByLabelDate[`${search.label}|${search.date}`] = search;
 
-      const { flights, error } = await scrapeSearch(browser, search, CONFIG.currency);
+      const { flights, error, recoveredAfter } = await scrapeSearch(browser, search, CONFIG.currency);
       if (error) {
         log(`!! ${search.label} ${search.date} — hata: ${error}`);
         continue;
       }
+      if (recoveredAfter) log(`   (${recoveredAfter}. denemede toparlandı)`);
 
       // Saat kısıtı olan aramalarda (5 Eylül) kalkış saatine göre ele.
       // Saati okunamayan satırı ELEMİYORUZ — ucuz bileti kaçırmaktansa işaretleyip gösteriyoruz.
