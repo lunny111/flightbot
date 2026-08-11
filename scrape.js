@@ -13,7 +13,7 @@ function buildUrl({ from, to, date }, currency) {
 }
 
 // A result row renders as newline-joined chunks, e.g.
-// "13:45 | – | 06:20+1 | Qatar Airways | 12 sa. 35 dk. | IST–BKK | 1 aktarma | ... | ₺14.492"
+// "13:45 | – | 06:20+1 | Havayolu | 12 sa. 35 dk. | XXX–YYY | 1 aktarma | ... | ₺14.492"
 function parseRow(text) {
   // Google her uçuşu iki farklı düzende basıyor; ikincisinde saatler yapışık
   // geliyor ("01:2501:25, 7 Eyl Pzt"). Önce onu tekile indiriyoruz.
@@ -67,10 +67,13 @@ function parseRow(text) {
       .slice(0, 60);
   }
 
-  // "IST–BKK" düz gelirse oradan; yapışık gelirse (SAWİstanbul…–HKTPhuket) kod listesinden.
+  // Rota "XXX–YYY" düz gelirse oradan. Yapışık düzende havalimanı koduna tam adı
+  // bitişik yazılıyor ("SAWİstanbul Sabiha Gökçen…"), o zaman büyük harfle devam
+  // eden ilk iki üç-harfli kodu alıyoruz.
   const route = t.match(/\b([A-Z]{3})\s*(?:–|-|—)\s*([A-Z]{3})\b/);
-  const origin = route ? route[1] : (t.match(/\b(IST|SAW)(?=[A-ZİÇĞÖŞÜ])/) || [])[1] || null;
-  const dest = route ? route[2] : (t.match(/\b(BKK|DMK|HKT)(?=[A-ZİÇĞÖŞÜ])/) || [])[1] || null;
+  const glued = route ? [] : [...t.matchAll(/\b([A-Z]{3})(?=[A-ZÇĞİÖŞÜ])/g)].map(m => m[1]);
+  const origin = route ? route[1] : glued[0] || null;
+  const dest = route ? route[2] : glued[1] || null;
 
   return {
     priceTRY, depTime, arrTime, plusDays, durationMin, stops, origin, dest,

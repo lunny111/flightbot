@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { launchBrowser, scrapeSearch } = require('./scrape');
+const SL = require('./skiplagged');
 
 const ROOT = __dirname;
 const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
@@ -65,8 +66,9 @@ function fmtFlight(f) {
   const plus = f.plusDays ? `+${f.plusDays}` : '';
   const t = f.depTime ? `${f.depTime}→${f.arrTime}${plus}` : '(saat okunamadı)';
   const ap = f.origin ? ` [${f.origin}]` : '';
+  const src = f.vendor && f.vendor !== f.provider ? `${f.provider}→${f.vendor}` : (f.provider || '?');
   return `${money(f.priceTRY)} — ${f.search}${ap} ${f.date} | ${t} | ` +
-    `${f.airline} | ${dur(f.durationMin)} | ${stopsLabel(f.stops)}` +
+    `${f.airline} | ${dur(f.durationMin)} | ${stopsLabel(f.stops)} | ${src}` +
     (f.depTime ? '' : ` | ham: ${f.raw}`);
 }
 
@@ -91,7 +93,8 @@ async function sendDiscord(deals, searchByLabelDate) {
     return {
       name: `${money(f.priceTRY)} · ${f.search}${f.origin ? ` [${f.origin}]` : ''} · ${f.date}`,
       value: `${when} · ${f.airline}\n` +
-             `${dur(f.durationMin)} · ${stopsLabel(f.stops)}\n[Google Flights'ta aç](${link})`,
+             `${dur(f.durationMin)} · ${stopsLabel(f.stops)} · **${f.vendor || f.provider}**\n` +
+             `[Google Flights](${link}) · [Skiplagged](https://skiplagged.com/flights/${f.origin || 'IST'}/${f.dest || ''}/${f.date})`,
     };
   });
 
@@ -130,16 +133,34 @@ async function runCycle() {
   const all = [];
   const searchByLabelDate = {};
 
+  // Skiplagged oturumu: Cloudflare bir kez asilir, sonra butun aramalar
+  // ayni sayfanin icinden fetch ile yapilir.
+  let skip = null;
+  try {
+    skip = await SL.openSession(browser, CONFIG.searches[0]);
+    log(`Skiplagged oturumu açıldı (TL kuru ${skip.rate}).`);
+  } catch (e) {
+    log(`!! Skiplagged oturumu açılamadı: ${e.message} — sadece Google Flights kullanılacak.`);
+  }
+
   try {
     for (const search of CONFIG.searches) {
       searchByLabelDate[`${search.label}|${search.date}`] = search;
 
       const { flights, error, recoveredAfter } = await scrapeSearch(browser, search, CONFIG.currency);
       if (error) {
-        log(`!! ${search.label} ${search.date} — hata: ${error}`);
-        continue;
+        log(`!! ${search.label} ${search.date} — Google hatası: ${error}`);
       }
       if (recoveredAfter) log(`   (${recoveredAfter}. denemede toparlandı)`);
+      flights.forEach(f => { f.provider = 'Google'; });
+
+      if (skip) {
+        try {
+          flights.push(...await SL.searchSkiplagged(skip, search));
+        } catch (e) {
+          log(`!! ${search.label} ${search.date} — Skiplagged hatası: ${e.message}`);
+        }
+      }
 
       // Saat kısıtı olan aramalarda (5 Eylül) kalkış saatine göre ele.
       // Saati okunamayan satırı ELEMİYORUZ — ucuz bileti kaçırmaktansa işaretleyip gösteriyoruz.
@@ -154,10 +175,14 @@ async function runCycle() {
       }
       if (unparsed) log(`   (uyarı: ${unparsed} satırın kalkış saati okunamadı, yine de dahil edildi)`);
 
-      const cheapest = kept.length ? Math.min(...kept.map(f => f.priceTRY)) : null;
+      const cheapest = kept.length ? kept.reduce((a, b) => (a.priceTRY < b.priceTRY ? a : b)) : null;
+      const per = p => {
+        const s = kept.filter(f => f.provider === p);
+        return s.length ? `${p} ${s.length}/${money(Math.min(...s.map(f => f.priceTRY)))}` : `${p} —`;
+      };
       log(`${search.label} ${search.date}${search.minDepartureTime ? ` (${search.minDepartureTime} sonrası)` : ''}` +
-          ` — ${flights.length} sonuç, ${kept.length} uygun` +
-          (cheapest ? `, en ucuz ${money(cheapest)}` : ''));
+          ` — ${per('Google')}, ${per('Skiplagged')}` +
+          (cheapest ? ` | en ucuz ${money(cheapest.priceTRY)} (${cheapest.vendor || cheapest.provider})` : ''));
 
       all.push(...kept);
 
@@ -165,6 +190,7 @@ async function runCycle() {
       await new Promise(r => setTimeout(r, 3000 + Math.random() * 4000));
     }
   } finally {
+    if (skip) await SL.closeSession(skip).catch(() => {});
     await browser.close().catch(() => {});
   }
 

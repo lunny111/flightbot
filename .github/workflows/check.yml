@@ -56,8 +56,19 @@ jobs:
           key: flight-state-${{ github.run_id }}
           restore-keys: flight-state-
 
+      # Aranan rotalar/tarihler/esik repoda tutulmuyor; secret'tan geliyor.
       - name: Config olustur
-        run: cp config.example.json config.json
+        env:
+          CONFIG_JSON: ${{ secrets.CONFIG_JSON }}
+        run: |
+          if [ -n "$CONFIG_JSON" ]; then
+            printf '%s' "$CONFIG_JSON" > config.json
+            echo "config.json CONFIG_JSON secret'indan yazildi"
+          else
+            echo "HATA: CONFIG_JSON secret'i tanimli degil." >&2
+            exit 1
+          fi
+          node -e "JSON.parse(require('fs').readFileSync('config.json','utf8')); console.log('config.json gecerli JSON')"
 
       - name: Kontrol et
         env:
