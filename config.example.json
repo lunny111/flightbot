@@ -1,0 +1,53 @@
+{
+  "discordWebhook": "",
+  "mentionEveryone": true,
+  "alertThresholdTRY": 12000,
+  "logThresholdTRY": 12000,
+  "intervalMinutes": 20,
+  "headless": true,
+  "currency": "TRY",
+  "searches": [
+    {
+      "from": "Istanbul",
+      "to": "BKK",
+      "date": "2026-09-05",
+      "minDepartureTime": "18:00",
+      "label": "IST -> Bangkok"
+    },
+    {
+      "from": "Istanbul",
+      "to": "BKK",
+      "date": "2026-09-06",
+      "minDepartureTime": null,
+      "label": "IST -> Bangkok"
+    },
+    {
+      "from": "Istanbul",
+      "to": "BKK",
+      "date": "2026-09-07",
+      "minDepartureTime": null,
+      "label": "IST -> Bangkok"
+    },
+    {
+      "from": "Istanbul",
+      "to": "HKT",
+      "date": "2026-09-05",
+      "minDepartureTime": "18:00",
+      "label": "IST -> Phuket"
+    },
+    {
+      "from": "Istanbul",
+      "to": "HKT",
+      "date": "2026-09-06",
+      "minDepartureTime": null,
+      "label": "IST -> Phuket"
+    },
+    {
+      "from": "Istanbul",
+      "to": "HKT",
+      "date": "2026-09-07",
+      "minDepartureTime": null,
+      "label": "IST -> Phuket"
+    }
+  ]
+}

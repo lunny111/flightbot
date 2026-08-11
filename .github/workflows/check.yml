@@ -1,0 +1,69 @@
+name: Bilet kontrolu
+
+on:
+  schedule:
+    # Her 20 dakikada bir. GitHub yogun saatlerde bunu geciktirebilir/atlayabilir.
+    - cron: '*/20 * * * *'
+  workflow_dispatch:        # Actions sekmesinden elle de calistirilabilir
+
+concurrency:
+  group: bilet-kontrolu
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Bagimliliklar
+        run: npm ci
+
+      # Chromium'u her calismada yeniden indirmemek icin cache'le (~130MB)
+      - name: Playwright cache
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Chromium kur
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Chromium sistem bagimliliklari
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      # Onceki calismadan kalan state.json'i geri yukle ki ayni bilet
+      # her 20 dakikada bir tekrar bildirilmesin.
+      - name: State geri yukle
+        uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: flight-state-${{ github.run_id }}
+          restore-keys: flight-state-
+
+      - name: Config olustur
+        run: cp config.example.json config.json
+
+      - name: Kontrol et
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: node bot.js --once
+
+      # Cache anahtarlari degistirilemez, o yuzden her calisma kendi
+      # run_id'siyle yaziyor; restore-keys prefix'i en sonuncuyu buluyor.
+      - name: State kaydet
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state.json
+          key: flight-state-${{ github.run_id }}

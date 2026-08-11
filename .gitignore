@@ -1,0 +1,7 @@
+node_modules/
+logs/
+state.json
+
+# Webhook URL'i burada duruyor — ASLA commit'lenmemeli.
+# Repo'ya giden sürüm config.example.json, webhook'u GitHub Secrets'tan geliyor.
+config.json
