@@ -72,7 +72,25 @@ fi
 
 echo "==> Secret'lar yaziliyor"
 gh secret set DISCORD_WEBHOOK --body "$WEBHOOK" --repo "$USER/$REPO_NAME"
-gh secret set CONFIG_JSON < config.json --repo "$USER/$REPO_NAME"
+
+# Ilk dogrulama icin esigi gecici yukseltmek istersen:
+#   TEST_THRESHOLD=16000 ./setup-account.sh
+# Boylece kurulur kurulmaz bildirim gelir ve calistigi gorulur.
+if [ -n "${TEST_THRESHOLD:-}" ]; then
+  echo "    CONFIG_JSON esigi gecici $TEST_THRESHOLD yapiliyor"
+  node -e "
+    const c=require('./config.json');
+    c.alertThresholdTRY=Number(process.env.TEST_THRESHOLD);
+    c.logThresholdTRY=Number(process.env.TEST_THRESHOLD);
+    require('fs').writeFileSync('/tmp/config-test.json', JSON.stringify(c,null,2));
+  "
+  gh secret set CONFIG_JSON < /tmp/config-test.json --repo "$USER/$REPO_NAME"
+  rm -f /tmp/config-test.json
+  echo "    NOT: test bittikten sonra gercek esige don:"
+  echo "         gh secret set CONFIG_JSON < config.json --repo $USER/$REPO_NAME"
+else
+  gh secret set CONFIG_JSON < config.json --repo "$USER/$REPO_NAME"
+fi
 gh secret list --repo "$USER/$REPO_NAME"
 
 echo "==> Dogrulama calismasi tetikleniyor"
