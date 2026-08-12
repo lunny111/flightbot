@@ -81,6 +81,11 @@ function googleLink(f, search) {
 // ---------- discord ----------
 
 async function sendDiscord(deals, searchByLabelDate) {
+  // --dry-run: her seyi calistir ama bildirim gonderme (ayar dogrulamak icin)
+  if (process.argv.includes('--dry-run')) {
+    log(`>> [dry-run] ${deals.length} bilet icin bildirim GONDERILMEDI.`);
+    return;
+  }
   if (!WEBHOOK) {
     log('!! Discord webhook ayarlanmamış — bildirim atlanıyor (config.json > discordWebhook).');
     return;
